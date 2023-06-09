@@ -1,8 +1,10 @@
 package muxado
 
-import "errors"
+import (
+	"errors"
 
-import "github.com/inconshreveable/muxado/frame"
+	"github.com/waynz0r/muxado/frame"
+)
 
 // ErrorCode is a 32-bit integer indicating the type of an error condition
 type ErrorCode uint32

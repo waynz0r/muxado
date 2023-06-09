@@ -1,4 +1,4 @@
-# muxado - Stream multiplexing for Go [![godoc reference](https://godoc.org/github.com/inconshreveable/muxado?status.png)](https://godoc.org/github.com/inconshreveable/muxado)
+# muxado - Stream multiplexing for Go [![godoc reference](https://godoc.org/github.com/waynz0r/muxado?status.png)](https://godoc.org/github.com/waynz0r/muxado)
 
 muxado implements a general purpose stream-multiplexing protocol. muxado allows clients applications
 to multiplex any io.ReadWriteCloser (like a net.Conn) into multiple, independent full-duplex byte streams.

@@ -4,7 +4,7 @@ import (
 	"io"
 	"sync"
 
-	"github.com/inconshreveable/muxado/frame"
+	"github.com/waynz0r/muxado/frame"
 )
 
 var zeroConfig Config

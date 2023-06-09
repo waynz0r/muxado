@@ -9,7 +9,7 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/inconshreveable/muxado/frame"
+	"github.com/waynz0r/muxado/frame"
 )
 
 var (
@@ -54,9 +54,7 @@ type sessionPrivate interface {
 	removeStream(frame.StreamId)
 }
 
-////////////////////////////////
 // public interface
-////////////////////////////////
 func newStream(sess sessionPrivate, id frame.StreamId, windowSize uint32, fin bool, init bool) streamPrivate {
 	str := &stream{
 		id:         id,
@@ -101,11 +99,12 @@ func (s *stream) Read(buf []byte) (int, error) {
 }
 
 // Close closes the stream in a manner that attempts to emulate a net.Conn's Close():
-// - It calls CloseWrite() to half-close the stream on the remote side
-// - It calls closeWith() so that all future Read/Write operations will fail
-// - If the stream receives another STREAM_DATA frame (except an empty one with a FIN)
-//   from the remote side, it will send a STREAM_RST with a CANCELED error code
+//   - It calls CloseWrite() to half-close the stream on the remote side
+//   - It calls closeWith() so that all future Read/Write operations will fail
+//   - If the stream receives another STREAM_DATA frame (except an empty one with a FIN)
+//     from the remote side, it will send a STREAM_RST with a CANCELED error code
 func (s *stream) Close() error {
+	s.bufImpl.Close()
 	s.CloseWrite()
 	s.closeWith(closeError)
 	return nil
@@ -154,9 +153,6 @@ func (s *stream) RemoteAddr() net.Addr {
 	return s.session.RemoteAddr()
 }
 
-/////////////////////////////////////
-// session's stream interface
-/////////////////////////////////////
 func (s *stream) handleStreamData(f *frame.Data) error {
 	// skip writing for zero-length frames (typically for sending FIN)
 	if f.Length() > 0 {

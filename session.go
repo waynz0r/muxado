@@ -9,7 +9,7 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/inconshreveable/muxado/frame"
+	"github.com/waynz0r/muxado/frame"
 )
 
 // private interface for Sessions to call Streams
@@ -42,7 +42,7 @@ type session struct {
 	local   halfState // client state
 	remote  halfState // server state
 
-	config      Config             // session configuration
+	config      *Config            // session configuration
 	transport   io.ReadWriteCloser // multiplexing over this transport stream
 	framer      frame.Framer       // framer
 	streams     *streamMap         // all active streams
@@ -68,44 +68,6 @@ func Server(trans io.ReadWriteCloser, config *Config) Session {
 	return newSession(trans, config, false)
 }
 
-func newSession(transport io.ReadWriteCloser, config *Config, isClient bool) Session {
-	if config == nil {
-		config = &zeroConfig
-	}
-	config.initDefaults()
-	sess := &session{
-		transport:   transport,
-		framer:      config.NewFramer(transport, transport),
-		streams:     newStreamMap(),
-		accept:      make(chan streamPrivate, config.AcceptBacklog),
-		writeFrames: make(chan writeReq, config.writeFrameQueueDepth),
-		dead:        make(chan struct{}),
-		config:      *config,
-	}
-	if isClient {
-		sess.isLocal = sess.isClient
-		sess.local.lastId += 1
-	} else {
-		sess.isLocal = sess.isServer
-		sess.remote.lastId += 1
-	}
-	go sess.reader()
-	go sess.writer()
-	return sess
-}
-
-// check if a stream id is for a client stream. client streams are odd
-func (s *session) isClient(id frame.StreamId) bool {
-	return uint32(id)&1 == 1
-}
-
-func (s *session) isServer(id frame.StreamId) bool {
-	return !s.isClient(id)
-}
-
-////////////////////////////////
-// public interface
-////////////////////////////////
 func (s *session) Open() (net.Conn, error) {
 	return s.OpenStream()
 }
@@ -209,9 +171,40 @@ func (s *session) Wait() (error, error, []byte) {
 	return s.dieErr, s.remoteError, s.remoteDebug
 }
 
-////////////////////////////////
-// private interface for streams
-////////////////////////////////
+func newSession(transport io.ReadWriteCloser, config *Config, isClient bool) Session {
+	if config == nil {
+		config = &zeroConfig
+	}
+	config.initDefaults()
+	sess := &session{
+		transport:   transport,
+		framer:      config.NewFramer(transport, transport),
+		streams:     newStreamMap(),
+		accept:      make(chan streamPrivate, config.AcceptBacklog),
+		writeFrames: make(chan writeReq, config.writeFrameQueueDepth),
+		dead:        make(chan struct{}),
+		config:      config,
+	}
+	if isClient {
+		sess.isLocal = sess.isClient
+		sess.local.lastId += 1
+	} else {
+		sess.isLocal = sess.isServer
+		sess.remote.lastId += 1
+	}
+	go sess.reader()
+	go sess.writer()
+	return sess
+}
+
+// check if a stream id is for a client stream. client streams are odd
+func (s *session) isClient(id frame.StreamId) bool {
+	return uint32(id)&1 == 1
+}
+
+func (s *session) isServer(id frame.StreamId) bool {
+	return !s.isClient(id)
+}
 
 // removeStream removes a stream from this session's stream registry
 //
@@ -232,7 +225,7 @@ func poolGet() interface{} {
 	case item := <-pool:
 		return item
 	default:
-		return make(chan error)
+		return make(chan error, 1)
 	}
 }
 
@@ -322,11 +315,7 @@ func (s *session) writer() {
 		case req := <-s.writeFrames:
 			err := fromFrameError(s.framer.WriteFrame(req.f))
 			if req.err != nil {
-				select {
-				case req.err <- err:
-				case <-s.dead:
-					return
-				}
+				req.err <- err
 			}
 			if err != nil {
 				// any write error kills the session

@@ -5,7 +5,7 @@ import (
 	"io/ioutil"
 	"testing"
 
-	"github.com/inconshreveable/muxado/frame"
+	"github.com/waynz0r/muxado/frame"
 )
 
 func TestCloseWrite(t *testing.T) {
